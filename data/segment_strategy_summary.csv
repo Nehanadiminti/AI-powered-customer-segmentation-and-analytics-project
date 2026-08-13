@@ -1,0 +1,4 @@
+segment,customer_count,average_income,average_spending,average_purchase_frequency
+Budget,446,57163.59,4633.07,0.29
+Premium,292,80638.28,13829.13,0.76
+Regular,262,39070.67,13392.53,0.78
