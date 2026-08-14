@@ -3,6 +3,7 @@ import pandas as pd
 
 from src.prediction_pipeline import predict_customer_segment
 from src.recommendation_engine import generate_recommendations
+from src.data_adapter import prepare_customer_data
 
 
 # ============================================================
@@ -17,12 +18,14 @@ st.set_page_config(
 
 
 # ============================================================
-# LOAD DATA
+# LOAD TRAINED CUSTOMER DATA
 # ============================================================
 
 DATA_PATH = "data/customer_segmented.csv"
 
 df = pd.read_csv(DATA_PATH)
+
+customer_data = df
 
 
 # ============================================================
@@ -36,8 +39,8 @@ st.subheader(
 )
 
 st.write(
-    "CustoLens AI analyzes customer behavior and divides customers "
-    "into Premium, Regular, and Budget segments."
+    "CustoLens AI analyzes customer behavior, identifies customer "
+    "segments, and generates AI-powered marketing recommendations."
 )
 
 
@@ -45,38 +48,54 @@ st.write(
 # CUSTOMER OVERVIEW
 # ============================================================
 
-st.markdown("---")
+st.divider()
 
 st.header("📊 Customer Overview")
 
 total_customers = len(df)
 
-premium_count = (df["segment"] == "Premium").sum()
-regular_count = (df["segment"] == "Regular").sum()
-budget_count = (df["segment"] == "Budget").sum()
+premium_count = (
+    df["segment"] == "Premium"
+).sum()
+
+regular_count = (
+    df["segment"] == "Regular"
+).sum()
+
+budget_count = (
+    df["segment"] == "Budget"
+).sum()
 
 
 col1, col2, col3, col4 = st.columns(4)
 
+
 with col1:
+
     st.metric(
         "Total Customers",
         total_customers
     )
 
+
 with col2:
+
     st.metric(
         "Premium Customers",
         premium_count
     )
 
+
 with col3:
+
     st.metric(
         "Regular Customers",
         regular_count
     )
 
+
 with col4:
+
     st.metric(
         "Budget Customers",
         budget_count
@@ -87,7 +106,7 @@ with col4:
 # INDIVIDUAL CUSTOMER PREDICTION
 # ============================================================
 
-st.markdown("---")
+st.divider()
 
 st.header("🔮 Individual Customer Prediction")
 
@@ -96,9 +115,12 @@ st.write(
     "and generate personalized recommendations."
 )
 
+
 col1, col2 = st.columns(2)
 
+
 with col1:
+
     age = st.number_input(
         "Age",
         min_value=18,
@@ -114,14 +136,8 @@ with col1:
         step=1000.0
     )
 
+
 with col2:
-    purchase_frequency = st.number_input(
-        "Purchase Frequency",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.8,
-        step=0.1
-    )
 
     annual_spending = st.number_input(
         "Annual Spending (₹)",
@@ -132,7 +148,20 @@ with col2:
 
 
 # ============================================================
-# PREDICT BUTTON
+# PURCHASE FREQUENCY
+# ============================================================
+# Purchase frequency is no longer entered manually.
+# The median value from the trained customer dataset is
+# used internally for individual prediction.
+# ============================================================
+
+purchase_frequency = float(
+    df["purchase_frequency"].median()
+)
+
+
+# ============================================================
+# INDIVIDUAL PREDICTION
 # ============================================================
 
 if st.button(
@@ -140,24 +169,26 @@ if st.button(
     use_container_width=True
 ):
 
-    # --------------------------------------------------------
-    # MODEL PREDICTION
-    # --------------------------------------------------------
-
     result = predict_customer_segment(
+
         age=age,
+
         income=income,
+
         purchase_frequency=purchase_frequency,
+
         annual_spending=annual_spending
     )
 
-    # --------------------------------------------------------
-    # PREDICTION RESULT
-    # --------------------------------------------------------
 
-    st.markdown("---")
+    st.divider()
 
     st.subheader("Prediction Result")
+
+
+    # --------------------------------------------------------
+    # DISPLAY SEGMENT
+    # --------------------------------------------------------
 
     if result == "Premium":
 
@@ -183,33 +214,46 @@ if st.button(
             f"Predicted Customer Segment: {result}"
         )
 
-    # --------------------------------------------------------
-    # AI RECOMMENDATIONS
-    # --------------------------------------------------------
+
+    # ========================================================
+    # RECOMMENDATIONS
+    # ========================================================
 
     st.subheader("💡 Recommended Strategies")
 
-    recommendations = generate_recommendations(result)
+    recommendations = generate_recommendations(
+        result
+    )
 
-    # If recommendation engine returns a dictionary
-    if isinstance(recommendations, dict):
+
+    if isinstance(
+        recommendations,
+        dict
+    ):
 
         if "strategy" in recommendations:
 
             st.write(
-                f"**Strategy:** {recommendations['strategy']}"
+                f"**Strategy:** "
+                f"{recommendations['strategy']}"
             )
+
 
         if "recommendations" in recommendations:
 
-            for recommendation in recommendations["recommendations"]:
+            for recommendation in recommendations[
+                "recommendations"
+            ]:
 
                 st.write(
                     f"• {recommendation}"
                 )
 
-    # If recommendation engine returns a list
-    elif isinstance(recommendations, list):
+
+    elif isinstance(
+        recommendations,
+        list
+    ):
 
         for recommendation in recommendations:
 
@@ -217,53 +261,16 @@ if st.button(
                 f"• {recommendation}"
             )
 
-    # Otherwise display whatever was returned
+
     else:
 
-        st.write(recommendations)
+        st.write(
+            recommendations
+        )
+
 
 # ============================================================
-# CUSTOMER DATA
-# ============================================================
-
-st.divider()
-
-st.header("👥 Customer Data")
-
-st.write(
-    "Explore the customer dataset with their predicted segments."
-)
-
-# Load segmented customer dataset
-customer_data = df
-
-# Display dataset statistics
-col1, col2, col3, col4 = st.columns(4)
-
-col1.metric("Total Customers", len(customer_data))
-col2.metric(
-    "Premium Customers",
-    (customer_data["segment"] == "Premium").sum()
-)
-col3.metric(
-    "Regular Customers",
-    (customer_data["segment"] == "Regular").sum()
-)
-col4.metric(
-    "Budget Customers",
-    (customer_data["segment"] == "Budget").sum()
-)
-
-st.subheader("Customer Records")
-
-st.dataframe(
-    customer_data,
-    use_container_width=True,
-    hide_index=True
-)
-
-# ============================================================
-# CSV UPLOAD & BULK CUSTOMER PREDICTION
+# CSV UPLOAD & BATCH PREDICTION
 # ============================================================
 
 st.divider()
@@ -271,177 +278,287 @@ st.divider()
 st.header("📂 Upload Customer CSV")
 
 st.write(
-    "Upload a CSV file containing customer information to "
-    "predict segments for multiple customers."
+    "Upload a customer CSV file. CustoLens AI automatically "
+    "recognizes supported customer attributes, prepares the "
+    "data, predicts customer segments, and generates "
+    "personalized recommendations."
 )
+
 
 uploaded_file = st.file_uploader(
     "Choose a customer CSV file",
     type=["csv"]
 )
 
+
 if uploaded_file is not None:
 
-    uploaded_df = pd.read_csv(uploaded_file)
+    # ========================================================
+    # 1. READ CSV
+    # ========================================================
 
-    st.subheader("Uploaded Customer Data")
-
-    st.dataframe(
-        uploaded_df,
-        use_container_width=True,
-        hide_index=True
+    uploaded_df = pd.read_csv(
+        uploaded_file
     )
 
-    # --------------------------------------------------------
-    # REQUIRED COLUMNS
-    # --------------------------------------------------------
 
-    required_columns = [
-        "age",
-        "income",
-        "purchase_frequency",
-        "annual_spending"
-    ]
+    # ========================================================
+    # 2. VALIDATE & PREPARE DATA
+    # ========================================================
+    #
+    # Column recognition and unit conversion happen internally.
+    # No mapping information is displayed to the user.
+    # ========================================================
 
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in uploaded_df.columns
-    ]
+    prepared_df, column_mapping, missing_columns = (
+        prepare_customer_data(
+            uploaded_df
+        )
+    )
 
-    # --------------------------------------------------------
-    # VALIDATE COLUMNS
-    # --------------------------------------------------------
+
+    # ========================================================
+    # 3. VALIDATION RESULT
+    # ========================================================
 
     if missing_columns:
 
         st.error(
-            "Missing required columns: "
-            + ", ".join(missing_columns)
+            "❌ CustoLens AI could not identify the required "
+            "customer information."
         )
+
+        st.info(
+            "The uploaded CSV must contain information "
+            "equivalent to age, income, purchase frequency, "
+            "and spending."
+        )
+
 
     else:
 
         st.success(
-            "CSV format is valid. All required columns are present."
+            "✅ Customer CSV successfully recognized."
         )
 
-        # ----------------------------------------------------
-        # PREDICT SEGMENTS
-        # ----------------------------------------------------
+
+        # ====================================================
+        # ANALYZE CUSTOMERS
+        # ====================================================
 
         if st.button(
-            "🔮 Predict Segments for Uploaded Customers",
+            "🚀 Analyze Customers",
             use_container_width=True
         ):
 
+            # =================================================
+            # 4. PREDICT EVERY CUSTOMER
+            # =================================================
+
             predictions = []
 
-            for _, customer in uploaded_df.iterrows():
+            total_rows = len(
+                prepared_df
+            )
 
-                segment = predict_customer_segment(
-                    age=customer["age"],
-                    income=customer["income"],
-                    purchase_frequency=customer["purchase_frequency"],
-                    annual_spending=customer["annual_spending"]
+            progress_bar = st.progress(
+                0
+            )
+
+            status_text = st.empty()
+
+
+            for position, (_, row) in enumerate(
+                prepared_df.iterrows(),
+                start=1
+            ):
+
+                prediction = predict_customer_segment(
+
+                    age=row["age"],
+
+                    income=row["income"],
+
+                    purchase_frequency=(
+                        row["purchase_frequency"]
+                    ),
+
+                    annual_spending=(
+                        row["annual_spending"]
+                    )
                 )
 
-                predictions.append(segment)
 
-            uploaded_df["predicted_segment"] = predictions
+                predictions.append(
+                    prediction
+                )
 
-            # ------------------------------------------------
-            # GENERATE STRATEGIES
-            # ------------------------------------------------
 
-            strategies = []
+                # ------------------------------------------------
+                # UPDATE PROGRESS
+                # ------------------------------------------------
+
+                progress_bar.progress(
+                    position / total_rows
+                )
+
+                status_text.write(
+                    f"Analyzing customer "
+                    f"{position} of {total_rows}..."
+                )
+
+
+            # =================================================
+            # 5. CREATE FINAL RESULT
+            # =================================================
+
+            result_df = uploaded_df.copy()
+
+
+            result_df[
+                "predicted_segment"
+            ] = predictions
+
+
+            # =================================================
+            # 6. GENERATE RECOMMENDATIONS
+            # =================================================
+            #
+            # Recommendations are generated internally.
+            #
+            # They are intentionally NOT added to result_df.
+            # Therefore, the final CSV does not contain a
+            # recommendations column.
+            # =================================================
+
+            recommendations = []
+
 
             for segment in predictions:
 
-                recommendation_result = (
-                    generate_recommendations(segment)
+                recommendation = (
+                    generate_recommendations(
+                        segment
+                    )
                 )
 
-                if isinstance(recommendation_result, dict):
+                recommendations.append(
+                    recommendation
+                )
 
-                    strategies.append(
-                        recommendation_result.get(
-                            "strategy",
-                            ""
-                        )
-                    )
 
-                else:
+            # =================================================
+            # 7. CLEAR PROGRESS
+            # =================================================
 
-                    strategies.append("General Customer Strategy")
+            progress_bar.empty()
 
-            uploaded_df["strategy"] = strategies
+            status_text.empty()
 
-            # ------------------------------------------------
-            # DISPLAY RESULTS
-            # ------------------------------------------------
 
-            st.subheader(
-                "🎯 Prediction Results"
+            # =================================================
+            # 8. DISPLAY RESULTS
+            # =================================================
+
+            st.success(
+                "✅ Customer analysis completed successfully!"
             )
 
+
+            st.subheader(
+                "📋 Customer Analysis Results"
+            )
+
+
             st.dataframe(
-                uploaded_df,
+                result_df,
                 use_container_width=True,
                 hide_index=True
             )
 
-            # ------------------------------------------------
-            # SEGMENT SUMMARY
-            # ------------------------------------------------
+
+            # =================================================
+            # 9. PREDICTION SUMMARY
+            # =================================================
 
             st.subheader(
-                "📊 Predicted Segment Summary"
+                "📊 Prediction Summary"
             )
 
-            prediction_counts = (
-                uploaded_df["predicted_segment"]
+
+            result_counts = (
+                result_df[
+                    "predicted_segment"
+                ]
                 .value_counts()
-                .reindex(
-                    ["Premium", "Regular", "Budget"],
-                    fill_value=0
-                )
             )
+
 
             col1, col2, col3 = st.columns(3)
 
+
             with col1:
+
                 st.metric(
-                    "Premium",
-                    prediction_counts["Premium"]
+                    "⭐ Premium",
+                    result_counts.get(
+                        "Premium",
+                        0
+                    )
                 )
+
 
             with col2:
+
                 st.metric(
-                    "Regular",
-                    prediction_counts["Regular"]
+                    "🔵 Regular",
+                    result_counts.get(
+                        "Regular",
+                        0
+                    )
                 )
+
 
             with col3:
+
                 st.metric(
-                    "Budget",
-                    prediction_counts["Budget"]
+                    "🟡 Budget",
+                    result_counts.get(
+                        "Budget",
+                        0
+                    )
                 )
 
-            # ------------------------------------------------
-            # DOWNLOAD RESULTS
-            # ------------------------------------------------
 
-            csv_output = uploaded_df.to_csv(
+            # =================================================
+            # 10. DOWNLOAD RESULTS
+            # =================================================
+
+            st.subheader(
+                "⬇️ Download Results"
+            )
+
+
+            csv_output = result_df.to_csv(
                 index=False
             )
 
+
             st.download_button(
+
                 label="⬇️ Download Prediction Results",
+
                 data=csv_output,
-                file_name="customer_segment_predictions.csv",
-                mime="text/csv"
+
+                file_name=(
+                    "customer_segment_predictions.csv"
+                ),
+
+                mime="text/csv",
+
+                use_container_width=True
             )
+
 
 # ============================================================
 # DATA VISUALIZATIONS
@@ -449,120 +566,234 @@ if uploaded_file is not None:
 
 st.divider()
 
-st.header("📈 Customer Analytics & Visualizations")
+st.header(
+    "📈 Customer Analytics & Visualizations"
+)
 
 st.write(
     "Visual insights into customer segments, spending behavior, "
     "income, and purchase frequency."
 )
 
-# ------------------------------------------------------------
+
+# ============================================================
 # SEGMENT DISTRIBUTION
-# ------------------------------------------------------------
+# ============================================================
 
-st.subheader("📊 Customer Segment Distribution")
+st.subheader(
+    "📊 Customer Segment Distribution"
+)
 
-segment_counts = customer_data["segment"].value_counts()
+
+segment_counts = (
+    customer_data["segment"]
+    .value_counts()
+    .reindex(
+        [
+            "Premium",
+            "Regular",
+            "Budget"
+        ]
+    )
+    .fillna(0)
+)
+
 
 st.bar_chart(
+
     segment_counts,
+
     x_label="Customer Segment",
+
     y_label="Number of Customers"
 )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # AVERAGE SPENDING BY SEGMENT
-# ------------------------------------------------------------
+# ============================================================
 
-st.subheader("💰 Average Annual Spending by Segment")
+st.subheader(
+    "💰 Average Annual Spending by Segment"
+)
+
 
 average_spending = (
     customer_data
-    .groupby("segment")["annual_spending"]
+    .groupby("segment")[
+        "annual_spending"
+    ]
     .mean()
+    .reindex(
+        [
+            "Premium",
+            "Regular",
+            "Budget"
+        ]
+    )
     .round(2)
 )
 
+
 st.bar_chart(
+
     average_spending,
+
     x_label="Customer Segment",
+
     y_label="Average Annual Spending"
 )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # AVERAGE INCOME BY SEGMENT
-# ------------------------------------------------------------
+# ============================================================
 
-st.subheader("💵 Average Income by Segment")
+st.subheader(
+    "💵 Average Income by Segment"
+)
+
 
 average_income = (
     customer_data
-    .groupby("segment")["income"]
+    .groupby("segment")[
+        "income"
+    ]
     .mean()
+    .reindex(
+        [
+            "Premium",
+            "Regular",
+            "Budget"
+        ]
+    )
     .round(2)
 )
 
+
 st.bar_chart(
+
     average_income,
+
     x_label="Customer Segment",
+
     y_label="Average Income"
 )
 
 
-# ------------------------------------------------------------
-# PURCHASE FREQUENCY BY SEGMENT
-# ------------------------------------------------------------
+# ============================================================
+# PURCHASE FREQUENCY
+# ============================================================
 
-st.subheader("🛒 Average Purchase Frequency by Segment")
+st.subheader(
+    "🛒 Average Purchase Frequency by Segment"
+)
+
 
 average_frequency = (
     customer_data
-    .groupby("segment")["purchase_frequency"]
+    .groupby("segment")[
+        "purchase_frequency"
+    ]
     .mean()
+    .reindex(
+        [
+            "Premium",
+            "Regular",
+            "Budget"
+        ]
+    )
     .round(2)
 )
 
+
 st.bar_chart(
+
     average_frequency,
+
     x_label="Customer Segment",
+
     y_label="Purchase Frequency"
 )
 
 
-# ------------------------------------------------------------
+# ============================================================
 # INCOME VS ANNUAL SPENDING
-# ------------------------------------------------------------
+# ============================================================
 
-st.subheader("📌 Income vs Annual Spending")
+st.subheader(
+    "📌 Income vs Annual Spending"
+)
+
 
 st.scatter_chart(
+
     customer_data,
+
     x="income",
+
     y="annual_spending"
 )
 
 
-# ------------------------------------------------------------
-# SEGMENT SUMMARY
-# ------------------------------------------------------------
+# ============================================================
+# SEGMENT PERFORMANCE SUMMARY
+# ============================================================
 
-st.subheader("📋 Segment Performance Summary")
+st.subheader(
+    "📋 Segment Performance Summary"
+)
+
 
 segment_summary = (
     customer_data
     .groupby("segment")
     .agg(
-        Customers=("name", "count"),
-        Average_Income=("income", "mean"),
-        Average_Spending=("annual_spending", "mean"),
-        Average_Purchase_Frequency=("purchase_frequency", "mean")
+
+        Customers=(
+            "name",
+            "count"
+        ),
+
+        Average_Income=(
+            "income",
+            "mean"
+        ),
+
+        Average_Spending=(
+            "annual_spending",
+            "mean"
+        ),
+
+        Average_Purchase_Frequency=(
+            "purchase_frequency",
+            "mean"
+        )
+    )
+    .reindex(
+        [
+            "Premium",
+            "Regular",
+            "Budget"
+        ]
     )
     .round(2)
 )
 
+
 st.dataframe(
     segment_summary,
     use_container_width=True
+)
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.divider()
+
+st.caption(
+    "CustoLens AI • AI-Powered Customer Segmentation "
+    "& Recommendation System"
 )

@@ -1,0 +1,6 @@
+customer_id,age,annual_income,purchase_amount,purchase_frequency,region
+C001,25,500000,2500,20,Hyderabad
+C002,42,1200000,8000,35,Delhi
+C003,31,700000,4000,15,Mumbai
+C004,55,1800000,12000,45,Bangalore
+C005,22,300000,1500,10,Chennai
